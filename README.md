@@ -8,5 +8,5 @@ You can get an idea about it via the youtube link.
 
 Youtube link : https://www.youtube.com/watch?v=iZ5XsbrKKqE
 
-![Screenshot](Image Thumbnail.png)
+![Screenshot](screenshot.png)
 
