@@ -1,0 +1,68 @@
+struct PixelData
+{
+    float4 currentColor;
+    float4 fromColor;
+    float4 toColor;
+    float time;
+    float speed;
+    float defaultspeed;
+};
+
+#pragma kernel CSMain
+
+RWTexture2D<float4> Result;
+RWStructuredBuffer<PixelData> PixelDatas;
+
+float resolation;
+float deltaTime;
+
+float damping;
+float4 uvMousePos;
+bool autoDiffusion;
+float brushSize;
+
+float2 GetUv(uint xId, uint yId) // int'a bölmek yavaş oluyor.
+{
+    return float2(xId / resolation, yId / resolation);
+}
+
+bool IsInMapRange (int x, int y)
+{
+    return x > 0 && x < resolation - 1 && y > 0 && y < resolation - 1;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int index = id.x + id.y * resolation, //2 boyutlu dizimizin(1024x1024) tek boyutlu dizideki indeks değeri
+        idX = id.x,    idY = id.y; 
+    
+    if (PixelDatas[index].time >= .98f)
+    {
+        for (int x = idX - 1; x <= idX + 1; x++)
+        {
+            for (int y = idY - 1; y <= idY + 1; y++)
+            {
+                if (IsInMapRange(x, y))
+                {
+                    PixelData pixel = PixelDatas[x + y * resolation];
+                    pixel.time += pixel.speed * deltaTime;
+                    pixel.time = saturate(pixel.time);
+                    pixel.currentColor = lerp(pixel.fromColor, pixel.toColor, pixel.time);
+                    PixelDatas[x + y * resolation] = pixel;
+                }
+            }
+        }
+    }
+
+    if (autoDiffusion == false)
+    {
+        PixelDatas[index].speed = PixelDatas[index].speed * (1.0 - damping * deltaTime); // Pixel yayılım hızını yavaş yavaş düşürüyoruz
+        float distanceMouseToUvPos = distance(uvMousePos.xy, GetUv(id.x, id.y));
+        if (uvMousePos.x != 0 && uvMousePos.y != 0 && distanceMouseToUvPos < brushSize) // (uvMousePos.x ve y değerleri 0 ise fare sol tıka basılmamış
+        {
+            PixelDatas[index].speed = PixelDatas[index].defaultspeed;
+        }
+    }
+    Result[id.xy] = PixelDatas[index].currentColor;
+}
